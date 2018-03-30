@@ -277,10 +277,11 @@ def read_mcsns_response(h5f, event_range=(0, 1e9)) ->Mapping[int, Mapping[int, W
                 bin_width_SiPM = float(numb)
 
 
-    if bin_width_PMT is None:
-        raise SensorBinningNotFound
+#    if bin_width_PMT is None:
+#        raise SensorBinningNotFound
     if bin_width_SiPM is None:
-        raise SensorBinningNotFound
+        bin_width_SiPM = 15 * units.picosecond
+#        raise SensorBinningNotFound
 
 
     h5extents   = h5f.root.MC.extents
