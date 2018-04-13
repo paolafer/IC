@@ -260,6 +260,56 @@ def compute_mchits_dict(mcevents:Mapping[int, Mapping[int, MCParticle]])->Mappin
     return mchits_dict
 
 
+def read_mcsns_response_evt (mctables: (tb.Table, tb.Table),
+                             event_number: int, last_line_of_event,
+                             bin_width_PMT, bin_width_SiPM, last_row=0) -> [tb.Table]:
+
+    h5extents   = mctables[0]
+    h5waveforms = mctables[1]
+
+    current_event = {}
+    event_range   = (last_row, int(1e9))
+
+    iwvf = 0
+    if event_range[0] > 0:
+        iwvf = h5extents[event_range[0]-1][last_line_of_event] + 1
+
+    for iext in range(*event_range):
+        this_row = h5extents[iext]
+        if this_row['evt_number'] == event_number:
+            # the index of the first waveform is 0 unless the first event
+            #  written is to be skipped: in this case they must be read from the extents
+            iwvf_end          = h5extents[iext][last_line_of_event]
+            current_sensor_id = h5waveforms[iwvf]['sensor_id']
+            time_bins         = []
+            charges           = []
+            while iwvf <= iwvf_end:
+                wvf_row   = h5waveforms[iwvf]
+                sensor_id = wvf_row['sensor_id']
+
+                if sensor_id == current_sensor_id:
+                    time_bins.append(wvf_row['time_bin'])
+                    charges.  append(wvf_row['charge'])
+                else:
+                    bin_width = bin_width_PMT if sensor_id < 1000 else bin_width_SiPM
+                    times     = np.array(time_bins) * bin_width
+
+                    current_event[current_sensor_id] = Waveform(times, charges, bin_width)
+
+                    time_bins = []
+                    charges   = []
+                    time_bins.append(wvf_row['time_bin'])
+                    charges.append(wvf_row['charge'])
+
+                    current_sensor_id = sensor_id
+
+                iwvf += 1
+
+            break
+
+    return current_event
+
+
 def read_mcsns_response(h5f, event_range=(0, 1e9)) ->Mapping[int, Mapping[int, Waveform]]:
 
     h5config = h5f.root.MC.configuration
@@ -287,6 +337,8 @@ def read_mcsns_response(h5f, event_range=(0, 1e9)) ->Mapping[int, Mapping[int, W
     h5extents   = h5f.root.MC.extents
     h5waveforms = h5f.root.MC.waveforms
 
+    sns_info     = (h5extents, h5waveforms)
+
     last_line_of_event = 'last_sns_data'
     events_in_file     = len(h5extents)
 
@@ -301,6 +353,8 @@ def read_mcsns_response(h5f, event_range=(0, 1e9)) ->Mapping[int, Mapping[int, W
             break
 
         current_event = {}
+        evt_number              = h5extents[iext]['evt_number']
+        wvf_rows = read_mcsns_response_evt(sns_info, evt_number, last_line_of_event, bin_width_PMT, bin_width_SiPM, iext)
 
         iwvf_end          = h5extents[iext][last_line_of_event]
         current_sensor_id = h5waveforms[iwvf]['sensor_id']
