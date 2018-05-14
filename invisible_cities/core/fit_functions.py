@@ -81,6 +81,9 @@ def polynom(x, *coeffs):
 def expo(x, const, mean):
     return const * np.exp(x/mean)
 
+def ln(x, const, mean):
+    return const * np.log(x/mean)
+
 
 def power(x, const, pow_):
     return const * np.power(x, pow_)
