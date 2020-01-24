@@ -50,4 +50,4 @@ def paola(files_in, file_out, event_range, sel_event_file):
                     result = dict (events_in = event_count_in.future,
                                    events_out = event_count_out.future ))
 
-        #return result
+        return result
