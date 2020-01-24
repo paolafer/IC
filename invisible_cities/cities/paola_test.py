@@ -19,15 +19,19 @@ def paola_sel_event_file(ICDATADIR):
     return os.path.join(ICDATADIR, 'events_paola.txt')
 
 
-def test_selection_is_correct(paola_file_input_data, paola_sel_event_file, output_tmpdir):
+@pytest.fixture(scope = 'module')
+def evts_to_sel(ICDATADIR, paola_sel_event_file):
+    return np.loadtxt(paola_sel_event_file, dtype=int)
+
+
+def test_selection_is_correct(paola_file_input_data, paola_sel_event_file, evts_to_sel, output_tmpdir):
 
     file_out = os.path.join(output_tmpdir,'hdst_paola_out.h5')
     conf = configure('dummy invisible_cities/config/paola.conf'.split())
     conf.update(dict(files_in = paola_file_input_data,
-                     file_out = file_out))
+                     file_out = file_out,
+                     sel_event_file = paola_sel_event_file))
     res = paola(**conf)
-
-    evts_to_sel = np.loadtxt(paola_sel_event_file, dtype=int)
 
     with tb.open_file(file_out) as h5out:
         selected_evts = h5out.root.Run.events[:]['evt_number']
@@ -35,15 +39,14 @@ def test_selection_is_correct(paola_file_input_data, paola_sel_event_file, outpu
         assert np.all(evts_to_sel == selected_evts)
 
 
-def test_content_is_the_same(paola_file_input_data, paola_sel_event_file, output_tmpdir):
+def test_content_is_the_same(paola_file_input_data, paola_sel_event_file, evts_to_sel, output_tmpdir):
 
     file_out = os.path.join(output_tmpdir,'hdst_paola_out.h5')
     conf = configure('dummy invisible_cities/config/paola.conf'.split())
     conf.update(dict(files_in = paola_file_input_data,
-                     file_out = file_out))
+                     file_out = file_out,
+                     sel_event_file = paola_sel_event_file))
     res = paola(**conf)
-
-    evts_to_sel = np.loadtxt(paola_sel_event_file, dtype=int)
 
     with tb.open_file(paola_file_input_data) as h5in:
 
