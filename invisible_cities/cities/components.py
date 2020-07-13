@@ -605,8 +605,8 @@ def hit_builder(dbfile, run_number, drift_v, reco,
 
     barycenter = partial(corona,
                          all_sipms      =  datasipm,
-                         Qthr           =  0 * units.pes,
-                         Qlm            =  0 * units.pes,
+                         Qthr           =  5 * units.pes,
+                         Qlm            =  5 * units.pes,
                          lm_radius      = -1 * units.mm,
                          new_lm_radius  = -1 * units.mm,
                          msipm          =  1)
