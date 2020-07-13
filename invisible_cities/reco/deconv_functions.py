@@ -105,51 +105,42 @@ def deconvolution_input(sample_width : List[float],
     """
     Prepares the given data for deconvolution. This involves interpolation of
     the data.
-
     Parameters
     ----------
     data        : Sensor (hits) position points.
     weight      : Sensor charge for each point.
-
     Initialization parameters:
         sample_width : Sampling size of the sensors.
         bin_size     : Size of the interpolated bins.
         inter_method : Interpolation method.
-
     Returns
     ----------
     Hs          : Charge input for deconvolution.
     inter_points : Coordinates of the deconvolution input.
     """
+    sample_width_diff = [1.5*sw for sw in sample_width]
     if inter_method not in InterpolationMethod:
         raise ValueError(f'inter_method {inter_method} is not a valid interpolation method.')
-
+    def safe_ceil(x, n=4):
+        return np.ceil(np.round(x, n)).astype('int')
     def deconvolution_input(data        : Tuple[np.ndarray, ...],
                             weight      : np.ndarray
                            ) -> Tuple[np.ndarray, Tuple[np.ndarray, ...]]:
-
-        ranges = [[coord.min() - 1.5 * sw, coord.max() + 1.5 * sw]     for coord,   sw in zip(data      , sample_width)]
-        nbin   = [np.ceil(np.diff(rang)/bs).astype('int')[0]           for bs   , rang in zip(bin_size  ,       ranges)]
-
+        ranges = [ [coord.min() - sw, coord.max() + sw]                for coord,   sw in zip(data      , sample_width_diff)]
+        nbin   = [safe_ceil(np.diff(np.round(rang))/bs).astype('int')[0]           for bs   , rang in zip(bin_size  ,       ranges)]
         if inter_method in (InterpolationMethod.linear, InterpolationMethod.cubic, InterpolationMethod.nearest):
-            allbins = [np.linspace(*rang, np.ceil(np.diff(rang)/sw)+1) for rang ,   sw in zip(ranges[:2], sample_width)]
+            allbins = [np.linspace(*rang, safe_ceil(np.diff(rang)/sw)+1) for rang ,   sw in zip(ranges[:2], sample_width)]
             Hs, edges = np.histogramdd(data, bins=allbins, normed=False, weights=weight)
         elif inter_method is InterpolationMethod.none:
             Hs, edges = np.histogramdd(data, bins=nbin   , normed=False, weights=weight, range=ranges)
         else:
             raise ValueError(f'inter_method {inter_method} is not a valid interpolatin mode.')
-
         inter_points = np.meshgrid(*(shift_to_bin_centers(edge) for edge in edges), indexing='ij')
         inter_points = tuple      (inter_p.flatten() for inter_p in inter_points)
-
         if inter_method in (InterpolationMethod.linear, InterpolationMethod.cubic, InterpolationMethod.nearest):
             Hs, inter_points = interpolate_signal(Hs, inter_points, edges, nbin, inter_method)
-
         return Hs, inter_points
-
     return deconvolution_input
-
-
 def interpolate_signal(Hs           : np.ndarray,
                        inter_points : Tuple[np.ndarray, ...],
                        edges        : Tuple[np.ndarray, ...],
@@ -159,7 +150,6 @@ def interpolate_signal(Hs           : np.ndarray,
     """
     Interpolates an n-dimensional distribution along N points. Interpolation
     has a lower limit equal to 0.
-
     Parameters
     ----------
     Hs           : Distribution weights to be interpolated.
@@ -167,21 +157,18 @@ def interpolate_signal(Hs           : np.ndarray,
     edges        : Edges of the coordinates.
     nbin         : Number of points to be interpolated in each dimension.
     inter_method : Interpolation method.
-
     Returns
     ----------
     H1         : Interpolated distribution weights.
     new_points : Interpolated coordinates.
     """
-    coords = (shift_to_bin_centers(np.linspace(np.min(edge), np.max(edge), n + 1))
+    coords = (shift_to_bin_centers(np.linspace(np.round(edge[0]), np.round(edge[-1]), n+1))
               for n, edge in zip(nbin, edges))
     new_points   = np.meshgrid(*coords, indexing='ij')
     new_points   = tuple      (new_p.flatten() for new_p in new_points)
-
     H1 = interpolate.griddata(inter_points, Hs.flatten(), new_points, method=inter_method.value)
     H1 = np.nan_to_num       (H1.reshape(nbin))
     H1 = np.clip             (H1, 0, None)
-
     return H1, new_points
 
 
